@@ -6,20 +6,20 @@ import random
 import nltk
 nltk.download('wordnet')
 from nltk.corpus import wordnet as wn
-from PyPDF2 import PdfReader
+#from PyPDF2 import PdfReader
 
 
 
 st.markdown("# NLP Project : Revision ")
 st.write("The purpose of this project is to generate MCQ based on an uploaded file , the file can be either in french or in english")
 
-def read_pdf(file): 
-    text =""
-    reader = PdfReader(file)
-    for num in range(len(reader.pages)):
-        page= reader.pages[num].extract_text()
-        text += page
-    return text
+#def read_pdf(file): 
+  #  text =""
+  #  reader = PdfReader(file)
+  #  for num in range(len(reader.pages)):
+       # page= reader.pages[num].extract_text()
+       # text += page
+   # return text*/
 
 def read_txt(file):
     text=""
