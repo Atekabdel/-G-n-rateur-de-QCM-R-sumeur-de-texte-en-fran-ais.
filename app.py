@@ -3,8 +3,11 @@ import streamlit as st
 import spacy
 from collections import Counter
 import random
-import PyPDF2
-from PyPDF2 import PdfReader,PdfWriter
+import nltk
+nltk.download('wordnet')
+from nltk.corpus import wordnet as wn
+from PyPDF2 import PdfReader
+
 
 
 st.markdown("# NLP Project : Revision ")
@@ -34,6 +37,32 @@ def map2list (map):
         list.append(map[i])
     return list
 
+def get_synonyms(word):
+    synonyms = []
+    for syn in wn.synsets(word):
+        for lemma in syn.lemmas():
+            synonyms.append(lemma.name())
+    return synonyms
+
+def get_distractors_wordnet(syn,word):
+    distractors=[]
+    word= word.lower()
+    orig_word = word
+    if len(word.split())>0:
+        word = word.replace(" ","_")
+    hypernym = syn.hypernyms()
+    if len(hypernym) == 0: 
+        return distractors
+    for item in hypernym[0].hyponyms():
+        name = item.lemmas()[0].name()
+        if name == orig_word:
+            continue
+        name = name.replace("_"," ")
+        name = " ".join(w.capitalize() for w in name.split())
+        if name is not None and name not in distractors:
+            distractors.append(name)
+    return distractors
+
 
 def generate_MCQ(text, nlp, num = 5):
     if text is None:
@@ -41,8 +70,9 @@ def generate_MCQ(text, nlp, num = 5):
     doc = nlp(text)
     ques =[sent.text for sent in doc.sents]
     if (len(ques)<num): num = len(ques)
+    if (len(ques)>10): num = random.randint(num,10)
 
-    num = random.randint(num,len(ques))
+    else: num = random.randint(num,len(ques))
     selected = random.sample(ques, num)
     qcm = []
     for sent in selected : 
@@ -55,12 +85,20 @@ def generate_MCQ(text, nlp, num = 5):
         ## We'll use the most frequent noun to generate the mcq 
         if noun_counts:
             chosen = noun_counts.most_common(1)[0][0]
-            question = sent.replace(chosen,'____________________')
+            
+            question = sent.replace(chosen,'______________')
+            chosen = " ".join(w.capitalize() for w in chosen.split())
             choices = [chosen]
-
-            distractors = list(set(nouns) - {chosen})
+            syns = wn.synsets(chosen,'n')
+            distractors = get_distractors_wordnet(syns[0],chosen)
+            distractor = list(set(nouns) - {chosen})
+            for i in range(len(distractor)):
+                distractors.append(distractor[i])
+           # syn = get_synonyms(chosen)
+           # for i in range(len(syn)):
+            #    distractors.append(syn[i])
             random.shuffle(distractors)
-            for distractor in distractors[:3]:
+            for distractor in distractors[:4]:
                 choices.append(distractor)
 
             random.shuffle(choices)
@@ -68,7 +106,6 @@ def generate_MCQ(text, nlp, num = 5):
             qcm.append((question, choices, correct_answer))
     return qcm
 def map_to_form(qcm):
-    st.write("MCQ:")
     for i in range(len(qcm)):
         st.radio(qcm[i][0], map2list(qcm[i][1]), key=f"qcm_{i}")
     submitted = st.button("Display correct answers")  
@@ -84,15 +121,15 @@ if 'summary' not in st.session_state:
 
 st.subheader("Uploading a file")
 file = st.file_uploader("Upload your file")
+
 language = st.radio("Select a language:", ["Fr", "En"])
-file_type = st.radio("Select a type:", ["Pdf", "txt"])
 tr = st.radio("you want to generate :", ["MCQ", "Summary"])
 
 submitted = st.button("Generate")
 
 if submitted:
     if file:
-        text = read_file(file, file_type)
+        text = read_file(file,"txt")
         if language == "Fr":
             nlp = spacy.load("fr_core_news_md")
         else:
@@ -103,7 +140,7 @@ if submitted:
         st.write("Please upload your file")
 
 if st.session_state.qcm:
-    st.write("QCM")
+    st.write("## QCM : ")
     map_to_form(st.session_state.qcm)
     if st.button("Restart"):
             st.session_state.qcm = None
